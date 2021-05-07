@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 
 class UserController {
     async createUser({ user }) {
-        const { name, email, password, role } = user;
+        const { name, email, password, role, supervisor_id} = user;
         const hashedPassword = await bcrypt.hash(password, 10);
         const createdUserId = await userModel.create({
             email,
@@ -11,6 +11,7 @@ class UserController {
             password: hashedPassword,
             role: role,
             google_id: "",
+            supervisor_id: supervisor_id,
             profile_pic: "/public/images/profilePics/generic.jpg",
             greenhouses_id: []
         });
