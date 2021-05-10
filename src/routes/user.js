@@ -1,54 +1,118 @@
-const userModel = require("../models/user");
-const bcrypt = require('bcryptjs');
+const express = require("express");
+const router = express.Router();
+const passport = require("passport");
+require('./../utils/auth/strategies/jwt');
+const UserController = require("../controllers/user");
+const {
+    userIdSchema,
+    createUserSchema,
+    updateUserSchema
+} = require('./../utils/schemas/user');
+const validationHandler = require('./../utils/middleware/validationHandler');
+const scopesValidationHandler = require('./../utils/middleware/scopesValidationHandler');
 
-class UserController {
-    async createUser({ user }) {
-        const { password } = user;
-        const hashedPassword = await bcrypt.hash(password, 10);
-        user.password = hashedPassword;
-        user.profile_pic = "https://ifarm-app-images.s3.amazonaws.com/images/profilePics/generic.jpg"
-        if(!user.google_id) {
-            user.google_id = "";
+function userApi(app) {
+    app.use('/api/users', router);
+
+    const userController = new UserController();
+
+    router.post(
+        '/',
+        passport.authenticate('jwt', { session: false }),
+        scopesValidationHandler(['create:user']),
+        validationHandler(createUserSchema),
+        async function (req, res, next) {
+            const { body: user } = req;
+            try {
+                const createdUserId = await userController.createUser({ user });
+                res.status(201).json({
+                    data: createdUserId,
+                    message: 'user created'
+                });
+            } catch (err) {
+                next(err);
+            }
         }
-        if(!user.greenhouses_id){
-            user.greenhouses_id = []
+    );
+
+    router.get(
+        '/',
+        passport.authenticate('jwt', { session: false }),
+        scopesValidationHandler(['read:user']),
+        async function (req, res, next) {
+            try {
+                const users = await userController.getUsers(req.query);
+                res.status(200).json({
+                    data: users,
+                    message: 'users listed'
+                });
+            } catch (err) {
+                next(err);
+            }
         }
-        const createdUserId = await userModel.create(user);
-        return createdUserId;
-    }
+    );
 
-    async getUsers(filters) {
-        const users = await userModel.getAll(filters);
-        return users || [];
-    };
-
-    async getUser({ userId }) {
-        const user = await userModel.get(userId);
-        return user || {};
-    };
-
-    async getUserByEmail({ email }) {
-        const [ user ] = await userModel.getAll({ email });
-        return user || {};
-    };
-
-    async updateUser({ userId, user } = {}) {
-        if(user.password) {
-            const { password } = user;
-            const hashedPassword = await bcrypt.hash(password, 10);
-            user.password = hashedPassword;
+    router.get(
+        '/:userId',
+        passport.authenticate('jwt', { session: false }),
+        scopesValidationHandler(['read:user']),
+        validationHandler({ userId: userIdSchema }, 'params'),
+        async function (req, res, next) {
+            const { userId } = req.params;
+            try {
+                const user = await userController.getUser({ userId });
+                res.status(200).json({
+                    data: user,
+                    message: 'user retrieved'
+                });
+            } catch (err) {
+                next(err);
+            }
         }
-        const updatedUserId = await userModel.update(
-            userId,
-            user
-        );
-        return updatedUserId;
-    }
+    );
 
-    async deleteUser({ userId }) {
-        const deletedUserId = await userModel.delete(userId);
-        return deletedUserId;
-    }
+    router.put(
+        '/:userId',
+        passport.authenticate('jwt', { session: false }),
+        scopesValidationHandler(['update:user']),
+        validationHandler({ userId: userIdSchema }, 'params'),
+        validationHandler(updateUserSchema),
+        async function (req, res, next) {
+            const { userId } = req.params;
+            const { body: user } = req;
+            try {
+                const updatedUserId = await userController.updateUser({
+                    userId,
+                    user
+                });
+                res.status(200).json({
+                    data: updatedUserId,
+                    message: 'user updated'
+                });
+            } catch (err) {
+                next(err);
+            }
+        }
+    );
+
+    router.delete(
+        '/:userId',
+        passport.authenticate('jwt', { session: false }),
+        scopesValidationHandler(['delete:user']),
+        validationHandler({ userId: userIdSchema }, 'params'),
+        async function (req, res, next) {
+            const { userId } = req.params;
+            try {
+                const deletedUserId = await userController.deleteUser({ userId });
+                res.status(200).json({
+                    data: deletedUserId,
+                    message: 'user deleted'
+                });
+            } catch (err) {
+                next(err);
+            }
+        }
+    );
 }
 
-module.exports = UserController;
+module.exports = userApi; 
