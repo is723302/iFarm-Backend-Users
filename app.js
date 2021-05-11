@@ -1,5 +1,6 @@
 const express = require('express');
 const app = express();
+const cors = require('cors');
 const path = require('path');
 const { config } = require('./config');
 const iFarmApi = require('./src/routes/index');
@@ -15,6 +16,9 @@ app.use('/api/assets', express.static(path.join(__dirname, './public')));
 
 // body parser
 app.use(express.json());
+
+// CORS
+app.use(cors());
 
 // routes
 iFarmApi(app);
